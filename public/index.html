@@ -48,6 +48,7 @@ label{display:block;font-size:13px;color:var(--mu);margin:12px 0 4px}
 <div id="list"></div></main></div>
 <dialog id="dlg"></dialog>
 <script>
+var $=function(s){return document.querySelector(s)};
 var KEY="gestor-v1",S=null,cur="all",flt="all",q="",draft=null,mode="";
 
 function T(t,c,g,x){x=x||{};return{id:"s"+Math.random().toString(36).slice(2,9),title:t,cat:c,grp:g||"",due:x.due||"",pri:x.pri||"",desc:x.desc||"",fields:x.fields||[],done:false}}
@@ -78,7 +79,7 @@ function showLogin(msg){$("#ttl").textContent="Entrar";$("#list").innerHTML='<di
  $("#pw").focus();function go(){PW=$("#pw").value;try{localStorage.setItem("gestor-pw",PW)}catch(e){}boot(PW?"Contraseña incorrecta":"")}$("#go").onclick=go;$("#pw").onkeydown=function(e){if(e.key==="Enter")go()}}
 function boot(){$("#ttl").textContent="Cargando...";api("GET").then(function(d){ready=true;if(d.data)S=d.data;else save();render()}).catch(function(e){if(e.auth)showLogin(arguments.length&&PW?"Contraseña incorrecta":"");else{$("#ttl").textContent="No se pudo conectar";$("#list").innerHTML='<div class="empty">'+esc(e.name==="AbortError"?"La conexión tardó demasiado.":e.message)+'</div>'}})}
 
-var $=function(s){return document.querySelector(s)};
+
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function st(t){return t.done?"dn":!t.due?"no":new Date(t.due)<new Date()?"late":"up"}
 var SN={all:"Todas",no:"Sin plazo",up:"Próximamente",late:"Vencida",dn:"Completada"};
