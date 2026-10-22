@@ -6,6 +6,14 @@ const pad = (n) => String(n).padStart(2, "0");
 const stamp = (d) => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00`;
 
 export default async function handler(req, res) {
+  try {
+    return await run(req, res);
+  } catch (e) {
+    return res.status(500).json({ error: String((e && e.message) || e) });
+  }
+}
+
+async function run(req, res) {
   if (!process.env.CALENDAR_TOKEN || req.query.token !== process.env.CALENDAR_TOKEN) {
     return res.status(401).send("no autorizado");
   }

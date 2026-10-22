@@ -1,6 +1,14 @@
 import { neon } from "@neondatabase/serverless";
 
 export default async function handler(req, res) {
+  try {
+    return await run(req, res);
+  } catch (e) {
+    return res.status(500).json({ error: String((e && e.message) || e) });
+  }
+}
+
+async function run(req, res) {
   if (!process.env.APP_PASSWORD || req.headers["x-password"] !== process.env.APP_PASSWORD) {
     return res.status(401).json({ error: "no autorizado" });
   }

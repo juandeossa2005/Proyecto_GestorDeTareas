@@ -66,13 +66,18 @@ T("Ir al ITM a preguntar por la finalización del semestre","mini","Trámites",{
 T("Aplicación para registrar gastos (tipo Moneri)","mini","Proyectos"),T("Organizar GitHub","mini","Proyectos"),T("Revisar proyectos","mini","Proyectos"),
 T("Hacerme los exámenes a finales de octubre","mini","Personal"),T("Que mi papá vaya al colegio de la niña","mini","Personal")]}}
 var PW="",ready=false,tm;try{PW=localStorage.getItem("gestor-pw")||""}catch(e){}
-function api(method,body,url){return fetch(url||"/api/data",{method:method,headers:{"Content-Type":"application/json","x-password":PW},body:body?JSON.stringify(body):undefined}).then(function(r){
- if(r.status===401){PW=prompt("Contraseña de la app:")||"";if(!PW)throw new Error("sin contraseña");try{localStorage.setItem("gestor-pw",PW)}catch(e){}return api(method,body,url)}
- if(!r.ok)throw new Error(r.status);return r.json()})}
+function api(method,body,url){var c=new AbortController(),tm2=setTimeout(function(){c.abort()},20000);
+ return fetch(url||"/api/data",{method:method,signal:c.signal,headers:{"Content-Type":"application/json","x-password":PW},body:body?JSON.stringify(body):undefined}).then(function(r){clearTimeout(tm2);
+  if(r.status===401){var e=new Error("auth");e.auth=true;throw e}
+  if(!r.ok)return r.text().then(function(x){throw new Error("Error "+r.status+": "+x.slice(0,200))});
+  return r.json()})}
 function save(){if(!ready)return;clearTimeout(tm);tm=setTimeout(function(){api("PUT",S).catch(function(){alert("No se pudo guardar. Revisa tu conexión.")})},400)}
 $("#dlg").onchange=function(e){if(e.target.id!=="fin")return;var f=e.target.files[0];if(!f)return;if(f.size>3e6){alert("El archivo supera 3 MB.");return}pull();
  var rd=new FileReader();rd.onload=function(){api("POST",{name:f.name,type:f.type,data:String(rd.result).split(",")[1]},"/api/files").then(function(r){draft.files.push({id:r.id,name:f.name,size:f.size});dlg()}).catch(function(){alert("No se pudo subir el archivo.")})};rd.readAsDataURL(f)};
-function boot(){api("GET").then(function(d){ready=true;if(d.data)S=d.data;else save();render()}).catch(function(){$("#ttl").textContent="No se pudo conectar con la base de datos"})}
+function showLogin(msg){$("#ttl").textContent="Entrar";$("#list").innerHTML='<div class="row"><input id="pw" type="password" placeholder="Contraseña" aria-label="Contraseña"><button class="p" id="go">Entrar</button></div>'+(msg?'<div class="empty">'+esc(msg)+'</div>':"");
+ $("#pw").focus();function go(){PW=$("#pw").value;try{localStorage.setItem("gestor-pw",PW)}catch(e){}boot(PW?"Contraseña incorrecta":"")}$("#go").onclick=go;$("#pw").onkeydown=function(e){if(e.key==="Enter")go()}}
+function boot(){$("#ttl").textContent="Cargando...";api("GET").then(function(d){ready=true;if(d.data)S=d.data;else save();render()}).catch(function(e){if(e.auth)showLogin(arguments.length&&PW?"Contraseña incorrecta":"");else{$("#ttl").textContent="No se pudo conectar";$("#list").innerHTML='<div class="empty">'+esc(e.name==="AbortError"?"La conexión tardó demasiado.":e.message)+'</div>'}})}
+
 var $=function(s){return document.querySelector(s)};
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function st(t){return t.done?"dn":!t.due?"no":new Date(t.due)<new Date()?"late":"up"}
