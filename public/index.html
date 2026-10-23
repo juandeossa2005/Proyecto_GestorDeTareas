@@ -39,6 +39,10 @@ label{display:block;font-size:13px;color:var(--mu);margin:12px 0 4px}
 .cf{display:grid;grid-template-columns:1fr 1.6fr auto;gap:6px;margin-bottom:6px}
 .foot{display:flex;gap:8px;justify-content:space-between;margin-top:20px;flex-wrap:wrap}
 @media(max-width:700px){.app{grid-template-columns:1fr}nav{border-right:0;border-bottom:1px solid var(--ln);display:flex;gap:4px;overflow-x:auto;padding:10px}nav h1{display:none}.cat{width:auto;white-space:nowrap}main{padding:16px 12px 60px}}
+#tip{position:fixed;z-index:50;display:none;max-width:340px;background:var(--sf);color:var(--tx);border:1px solid var(--ln);border-radius:8px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.35);pointer-events:none;font-size:13px}
+#tip b{font-size:14px}#tip .tm{color:var(--mu);margin-top:2px}
+#tip .td{margin-top:8px;white-space:pre-wrap;max-height:9em;overflow:hidden}
+#tip .tf{margin-top:4px;overflow-wrap:anywhere}#tip .tf span{color:var(--mu)}
 </style></head><body>
 <div class="app"><nav id="nav"></nav><main>
 <h2 id="ttl">Cargando...</h2>
@@ -46,6 +50,7 @@ label{display:block;font-size:13px;color:var(--mu);margin:12px 0 4px}
 <div class="bar"><input id="qa" placeholder="Agregar tarea rápida (sin plazo)" aria-label="Tarea rápida"><button class="p" id="qb">Agregar</button><button id="full">Con detalles</button></div>
 <div class="chips" id="chips"></div>
 <div id="list"></div></main></div>
+<div id="tip" role="tooltip"></div>
 <dialog id="dlg"></dialog>
 <script>
 var $=function(s){return document.querySelector(s)};
@@ -77,6 +82,24 @@ $("#dlg").onchange=function(e){if(e.target.id!=="fin")return;var f=e.target.file
  var rd=new FileReader();rd.onload=function(){api("POST",{name:f.name,type:f.type,data:String(rd.result).split(",")[1]},"/api/files").then(function(r){draft.files.push({id:r.id,name:f.name,size:f.size});dlg()}).catch(function(){alert("No se pudo subir el archivo.")})};rd.readAsDataURL(f)};
 function showLogin(msg){$("#ttl").textContent="Entrar";$("#list").innerHTML='<div class="row"><input id="pw" type="password" placeholder="Contraseña" aria-label="Contraseña"><button class="p" id="go">Entrar</button></div>'+(msg?'<div class="empty">'+esc(msg)+'</div>':"");
  $("#pw").focus();function go(){PW=$("#pw").value;try{localStorage.setItem("gestor-pw",PW)}catch(e){}boot(PW?"Contraseña incorrecta":"")}$("#go").onclick=go;$("#pw").onkeydown=function(e){if(e.key==="Enter")go()}}
+var tipT=null;
+function tipHide(){clearTimeout(tipT);$("#tip").style.display="none"}
+function tipHtml(t){var c=catOf(t.cat),s=st(t),h='<b>'+esc(t.title)+'</b><div class="tm">'+esc(c.icon+" "+c.name)+(t.grp?" › "+esc(t.grp):"")+'</div>';
+ h+='<div class="tm">'+SN[s]+(t.due?" · "+fd(t.due):"")+(t.pri?" · Prioridad "+t.pri:"")+'</div>';
+ if(t.desc)h+='<div class="td">'+esc(t.desc)+'</div>';
+ (t.fields||[]).forEach(function(f){h+='<div class="tf"><span>'+esc(f.k)+':</span> '+esc(f.v)+'</div>'});
+ (t.links||[]).forEach(function(l){h+='<div class="tf">🔗 '+esc(l)+'</div>'});
+ (t.files||[]).forEach(function(f){h+='<div class="tf">📎 '+esc(f.name)+'</div>'});
+ return h}
+function tipMove(e){var el=$("#tip"),w=el.offsetWidth,h=el.offsetHeight,x=e.clientX+16,y=e.clientY+16;
+ if(x+w>innerWidth-8)x=Math.max(8,e.clientX-w-16);if(y+h>innerHeight-8)y=Math.max(8,e.clientY-h-16);el.style.left=x+"px";el.style.top=y+"px"}
+$("#list").addEventListener("mouseover",function(e){var row=e.target.closest(".row");if(!row||(e.relatedTarget&&row.contains(e.relatedTarget)))return;
+ var b=row.querySelector("[data-o]");if(!b)return;var t=S.tasks.find(function(x){return x.id===b.dataset.o});if(!t)return;
+ clearTimeout(tipT);var ev=e;tipT=setTimeout(function(){var el=$("#tip");el.innerHTML=tipHtml(t);el.style.display="block";tipMove(ev)},200)});
+$("#list").addEventListener("mousemove",function(e){if($("#tip").style.display==="block")tipMove(e);else{}});
+$("#list").addEventListener("mouseout",function(e){var row=e.target.closest(".row");if(row&&!(e.relatedTarget&&row.contains(e.relatedTarget)))tipHide()});
+$("#list").addEventListener("click",tipHide);
+addEventListener("scroll",tipHide,true);
 function boot(){$("#ttl").textContent="Cargando...";api("GET").then(function(d){ready=true;if(d.data)S=d.data;else save();render()}).catch(function(e){if(e.auth)showLogin(arguments.length&&PW?"Contraseña incorrecta":"");else{$("#ttl").textContent="No se pudo conectar";$("#list").innerHTML='<div class="empty">'+esc(e.name==="AbortError"?"La conexión tardó demasiado.":e.message)+'</div>'}})}
 
 
@@ -85,7 +108,7 @@ function st(t){return t.done?"dn":!t.due?"no":new Date(t.due)<new Date()?"late":
 var SN={all:"Todas",no:"Sin plazo",up:"Próximamente",late:"Vencida",dn:"Completada"};
 function catOf(id){return S.cats.find(function(c){return c.id===id})||{name:"?",icon:"",color:"#888"}}
 function fd(d){var x=new Date(d);return x.toLocaleDateString("es",{day:"numeric",month:"short"}).replace(".","")+", "+x.toLocaleTimeString("es",{hour:"numeric",minute:"2-digit"})}
-function render(){
+function render(){tipHide();
  var h='<h1>Mis tareas</h1><button class="cat '+(cur==="all"?"on":"")+'" data-c="all"><i style="background:var(--mu)"></i>Todas<span class="n">'+S.tasks.filter(function(t){return!t.done}).length+'</span></button>';
  S.cats.forEach(function(c){h+='<button class="cat '+(cur===c.id?"on":"")+'" data-c="'+c.id+'"><i style="background:'+esc(c.color)+'"></i>'+esc(c.icon)+" "+esc(c.name)+'<span class="n">'+S.tasks.filter(function(t){return t.cat===c.id&&!t.done}).length+'</span></button>'});
  h+='<button class="cat" data-c="+"><span style="color:var(--ac)">+ Nueva categoría</span></button>';
